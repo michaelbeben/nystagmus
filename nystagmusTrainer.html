@@ -1,0 +1,672 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Nystagmus Training</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+            background-color: #f0f0f0;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 800px;
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+
+        .training-area {
+            width: 100%;
+            height: 300px;
+            border: 2px solid #333;
+            position: relative;
+            overflow: hidden;
+            background: #fff;
+            margin: 20px 0;
+        }
+
+        .foliage-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.3s;
+            z-index: 1;
+        }
+
+        .foliage-overlay.active {
+            opacity: 1;
+        }
+
+        .foliage-leaf {
+            position: absolute;
+            background-color: rgba(34, 139, 34, 0.4);
+            border-radius: 50% 0 50% 50%;
+            transform: rotate(45deg);
+            pointer-events: none;
+        }
+
+        .target {
+            width: 20px;
+            height: 20px;
+            background-color: red;
+            border-radius: 50%;
+            position: relative;
+            transition: left 0.1s linear, opacity 0.3s ease;
+            z-index: 2;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .letter {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            justify-content: center;
+            align-items: center;
+            transform: translate(-50%, -50%);
+        color: white;
+        font-size: 15px;
+        font-weight: bold;
+        line-height: 1;
+         }
+
+        .target.obscured {
+            opacity: 0.4;  /* Lower opacity when foliage is enabled */
+        }
+
+        .controls {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        .control-group {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+
+        button {
+            padding: 10px 20px;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+
+        button:hover {
+            background-color: #0056b3;
+        }
+
+        button:disabled {
+            background-color: #cccccc;
+            cursor: not-allowed;
+        }
+
+        label {
+            font-weight: bold;
+        }
+
+        input[type="range"] {
+            width: 100%;
+        }
+
+        .metrics {
+            margin-top: 20px;
+            padding: 10px;
+            background-color: #f8f9fa;
+            border-radius: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Nystagmus Training</h1>
+        
+        <div class="controls">
+            <div class="control-group">
+                <label>
+                    <input type="checkbox" id="foliageMode"> Enable Foliage Mode
+                </label>
+                <div id="foliageDensityControls" style="display: none;">
+                    <label for="foliageDensity">Foliage Density:</label>
+                    <input type="range" id="foliageDensity" min="10" max="100" value="40">
+                    <span id="foliageDensityValue">40</span>
+                </div>
+            </div>
+            
+            <div class="control-group">
+                <label for="speed">Speed:</label>
+                <input type="range" id="speed" min="1" max="10" value="1">
+                <span id="speedValue">1</span>
+                <div>
+                    <label><input type="checkbox" id="acceleration"> Enable Acceleration</label>
+                </div>
+            </div>
+            
+            <div class="control-group">
+                <label for="pattern">Pattern:</label>
+                <select id="pattern">
+                    <option value="horizontal">Horizontal</option>
+                    <option value="vertical">Vertical</option>
+                    <option value="circular">Circular</option>
+                    <option value="random">Random</option>
+                    <option value="saccadic">Saccadic Jumps</option>
+                    <option value="custom">Custom Path</option>
+                </select>
+            </div>
+
+            <div class="control-group">
+                <label for="targetColor">Target Color:</label>
+                <select id="targetColor">
+                    <option value="red">Red</option>
+                    <option value="black">Black</option>
+                    <option value="blue">Blue</option>
+                    <option value="green">Green</option>
+                </select>
+                <label for="targetSize">Target Size:</label>
+                <input type="range" id="targetSize" min="10" max="40" value="20">
+                <span id="targetSizeValue">20</span>px
+            </div>
+
+            <div class="control-group">
+                <label for="backgroundColor">Background:</label>
+                <select id="backgroundColor">
+                    <option value="white">White</option>
+                    <option value="black">Black</option>
+                    <option value="gray">Gray</option>
+                </select>
+                <label><input type="checkbox" id="showGrid"> Show Distance Grid</label>
+            </div>
+
+            <div class="control-group">
+                <label><input type="checkbox" id="multiTarget"> Enable Multiple Targets</label>
+                <input type="number" id="targetCount" min="2" max="5" value="2" style="width: 50px" disabled>
+            </div>
+            
+            <div class="control-group">
+                <button id="startBtn">Start</button>
+                <button id="stopBtn" disabled>Stop</button>
+            </div>
+        </div>
+
+        <div class="training-area">
+            <div class="target">
+            <span class="letter">A</span>
+            </div>
+            <div class="foliage-overlay"></div>
+        </div>
+
+        <div class="Letter Guesser">
+            <h3>Letter</h3> 
+            <input class ="guess" type="text" maxlength="1"> 
+            <p>Score: <span id="score">0</span></p>
+            <p>Misses: <span id="misses">0</span></p>
+        </div>
+
+        <div class="metrics">
+            <h3>Training Metrics</h3>
+            <p>Duration: <span id="duration">0:00</span></p>
+            <p>Cycles completed: <span id="cycles">0</span></p>
+        </div>
+    </div>
+
+    <script>
+        const target = document.querySelector('.target');
+        const letter = document.querySelector('.letter');
+        const guess = document.querySelector('.guess');
+        const startBtn = document.querySelector('#startBtn');
+        const stopBtn = document.querySelector('#stopBtn');
+        const speedInput = document.querySelector('#speed');
+        const speedValue = document.querySelector('#speedValue');
+        const patternSelect = document.querySelector('#pattern');
+        const durationSpan = document.querySelector('#duration');
+        const cyclesSpan = document.querySelector('#cycles');
+        const trainingArea = document.querySelector('.training-area');
+        const foliageOverlay = document.querySelector('.foliage-overlay');
+        const foliageModeCheckbox = document.querySelector('#foliageMode');
+        const foliageDensitySlider = document.querySelector('#foliageDensity');
+        const foliageDensityValue = document.querySelector('#foliageDensityValue');
+        const foliageDensityControls = document.querySelector('#foliageDensityControls');
+        const targetColorSelect = document.querySelector('#targetColor');
+        const targetSizeInput = document.querySelector('#targetSize');
+        const targetSizeValue = document.querySelector('#targetSizeValue');
+        const backgroundColorSelect = document.querySelector('#backgroundColor');
+        const showGridCheckbox = document.querySelector('#showGrid');
+        const multiTargetCheckbox = document.querySelector('#multiTarget');
+        const targetCountInput = document.querySelector('#targetCount');
+        const accelerationCheckbox = document.querySelector('#acceleration');
+
+        let customPath = [];
+        let isDrawingPath = false;
+
+        function createGrid() {
+            const gridOverlay = document.createElement('div');
+            gridOverlay.className = 'grid-overlay';
+            
+            // Create horizontal lines
+            for (let i = 1; i < 10; i++) {
+                const line = document.createElement('div');
+                line.className = 'grid-line horizontal';
+                line.style.top = `${i * 10}%`;
+                gridOverlay.appendChild(line);
+            }
+            
+            // Create vertical lines
+            for (let i = 1; i < 10; i++) {
+                const line = document.createElement('div');
+                line.className = 'grid-line vertical';
+                line.style.left = `${i * 10}%`;
+                gridOverlay.appendChild(line);
+            }
+            
+            trainingArea.appendChild(gridOverlay);
+        }
+
+        function updateTargetAppearance() {
+            const targets = document.querySelectorAll('.target');
+            targets.forEach(target => {
+                target.style.backgroundColor = targetColorSelect.value;
+                target.style.width = `${targetSizeInput.value}px`;
+                target.style.height = `${targetSizeInput.value}px`;
+            });
+            letter.style.fontSize= `${targetSizeInput.value *.75}px`;
+            trainingArea.style.backgroundColor = backgroundColorSelect.value;
+            
+            // Add/remove inverted class based on background color
+            if (backgroundColorSelect.value === 'black') {
+                targets.forEach(target => target.classList.add('inverted'));
+            } else {
+                targets.forEach(target => target.classList.remove('inverted'));
+            }
+        }
+
+        function letterGame() {
+            var score = 0;
+            var misses = 0;
+            const guessInput = document.querySelector('.guess');
+            const scoreDisplay = document.querySelector('#score');
+            const missDisplay = document.querySelector('#misses');
+            var actualValue = String.fromCharCode(Math.floor(Math.random() * 36) + 48).toUpperCase();
+            document.querySelector('.letter').textContent = actualValue
+            guessInput.addEventListener('input', () => {
+            var guessValue = guessInput.value.toUpperCase()
+            if (guessValue === actualValue)
+            {
+                score += 1;
+                actualValue = String.fromCharCode(Math.floor(Math.random() * 36) + 48).toUpperCase();
+                document.querySelector('.letter').textContent = actualValue
+                scoreDisplay.textContent = score;
+                console.log(score);
+            }
+            else{
+                misses +=1
+                missDisplay.textContent = misses;
+            }
+            guessInput.value = "";
+            });
+        }
+
+        function createMultipleTargets() {
+            // Remove existing targets
+            document.querySelectorAll('.target').forEach(t => t.remove());
+            
+            const count = parseInt(targetCountInput.value);
+            for (let i = 0; i < count; i++) {
+                const newTarget = document.createElement('div');
+                newTarget.className = 'target';
+                trainingArea.appendChild(newTarget);
+            }
+            updateTargetAppearance();
+        }
+
+        // Update existing movement functions to handle multiple targets
+        function horizontalMovement(timestamp) {
+            if (!startTime) startTime = timestamp;
+            const elapsed = timestamp - startTime;
+            const speed = speedInput.value * 2;
+            const targets = document.querySelectorAll('.target');
+            
+            targets.forEach((target, index) => {
+                const phaseOffset = (index / targets.length) * Math.PI;
+                const position = (Math.sin(elapsed * speed / 1000 + phaseOffset) + 1) / 2;
+                
+                if (accelerationCheckbox.checked) {
+                    const acceleration = Math.sin(elapsed * speed / 2000) * 0.5 + 0.5;
+                    target.style.left = `${position * (trainingArea.offsetWidth - parseInt(targetSizeInput.value)) * acceleration}px`;
+                } else {
+                    target.style.left = `${position * (trainingArea.offsetWidth - parseInt(targetSizeInput.value))}px`;
+                }
+                target.style.top = `${140 + (index * 30)}px`;
+            });
+
+            updateDuration();
+            if (isRunning) {
+                animation = requestAnimationFrame(horizontalMovement);
+            }
+        }
+
+        function saccadicMovement(timestamp) {
+            if (!startTime) {
+                startTime = timestamp;
+                target.dataset.nextJump = timestamp + 1000;
+            }
+
+            if (timestamp >= parseFloat(target.dataset.nextJump)) {
+                const newX = Math.random() * (trainingArea.offsetWidth - parseInt(targetSizeInput.value));
+                const newY = Math.random() * (trainingArea.offsetHeight - parseInt(targetSizeInput.value));
+                
+                target.style.left = `${newX}px`;
+                target.style.top = `${newY}px`;
+                
+                target.dataset.nextJump = timestamp + (1000 / speedInput.value);
+                cycles++;
+                cyclesSpan.textContent = cycles;
+            }
+
+            updateDuration();
+            if (isRunning) {
+                animation = requestAnimationFrame(saccadicMovement);
+            }
+        }
+
+        // Event listeners for new controls
+        targetColorSelect.addEventListener('change', updateTargetAppearance);
+        targetSizeInput.addEventListener('input', () => {
+            targetSizeValue.textContent = targetSizeInput.value;
+            updateTargetAppearance();
+        });
+        backgroundColorSelect.addEventListener('change', updateTargetAppearance);
+        showGridCheckbox.addEventListener('change', () => {
+            const existingGrid = document.querySelector('.grid-overlay');
+            if (showGridCheckbox.checked && !existingGrid) {
+                createGrid();
+            } else if (!showGridCheckbox.checked && existingGrid) {
+                existingGrid.remove();
+            }
+        });
+        multiTargetCheckbox.addEventListener('change', () => {
+            targetCountInput.disabled = !multiTargetCheckbox.checked;
+            if (multiTargetCheckbox.checked) {
+                createMultipleTargets();
+            } else {
+                document.querySelectorAll('.target').forEach((t, i) => {
+                    if (i > 0) t.remove();
+                });
+            }
+        });
+        targetCountInput.addEventListener('change', () => {
+            if (multiTargetCheckbox.checked) {
+                createMultipleTargets();
+            }
+        });
+
+        function createFoliage() {
+            // Clear existing foliage
+            foliageOverlay.innerHTML = '';
+            
+            // Get number of leaves from density slider
+            const densityValue = parseInt(foliageDensitySlider.value);
+            
+            // Calculate number of leaves based on density
+            // More leaves at higher densities to ensure full coverage
+            const numLeaves = Math.floor(densityValue * 1.5);
+            
+            // Calculate base size based on density
+            // Larger leaves at higher densities
+            const baseSize = 30 + (densityValue / 100) * 40;
+            
+            // Create random leaves
+            for (let i = 0; i < numLeaves; i++) {
+                const leaf = document.createElement('div');
+                leaf.className = 'foliage-leaf';
+                
+                // Size varies but increases with density
+                const sizeVariation = baseSize * (0.7 + Math.random() * 0.6);
+                leaf.style.width = `${sizeVariation}px`;
+                leaf.style.height = `${sizeVariation}px`;
+                
+                // Random position
+                leaf.style.left = `${Math.random() * 100}%`;
+                leaf.style.top = `${Math.random() * 100}%`;
+                
+                // Random rotation
+                leaf.style.transform = `rotate(${Math.random() * 360}deg)`;
+                
+                // Random shade of green with transparency that increases with density
+                const green = 100 + Math.floor(Math.random() * 100);
+                const opacity = 0.3 + (densityValue / 100) * 0.4; // Opacity increases with density
+                leaf.style.backgroundColor = `rgba(34, ${green}, 34, ${opacity})`;
+                
+                foliageOverlay.appendChild(leaf);
+            }
+        }
+
+        function toggleFoliage() {
+            const target = document.querySelector('.target');
+            if (foliageModeCheckbox.checked) {
+                createFoliage();
+                foliageOverlay.classList.add('active');
+                foliageDensityControls.style.display = 'block';
+                target.classList.add('obscured');
+            } else {
+                foliageOverlay.classList.remove('active');
+                foliageDensityControls.style.display = 'none';
+                target.classList.remove('obscured');
+            }
+        }
+
+        function updateFoliageDensity() {
+            foliageDensityValue.textContent = foliageDensitySlider.value;
+            if (foliageModeCheckbox.checked) {
+                createFoliage();
+            }
+        }
+
+        foliageModeCheckbox.addEventListener('change', toggleFoliage);
+        foliageDensitySlider.addEventListener('input', updateFoliageDensity);
+
+        let animation = null;
+        let startTime = null;
+        let cycles = 0;
+        let isRunning = false;
+
+        function updateSpeedValue() {
+            speedValue.textContent = speedInput.value;
+        }
+
+        function updateDuration() {
+            if (!startTime || !isRunning) return;
+            const elapsed = Math.floor((Date.now() - startTime) / 1000);
+            const minutes = Math.floor(elapsed / 60);
+            const seconds = elapsed % 60;
+            durationSpan.textContent = `${minutes}:${seconds.toString().padStart(2, '0')}`;
+        }
+
+        function horizontalMovement(timestamp) {
+            if (!startTime) startTime = timestamp;
+            const elapsed = timestamp - startTime;
+            const speed = speedInput.value * 2;
+            const position = (Math.sin(elapsed * speed / 1000) + 1) / 2;
+            
+            target.style.left = `${position * (trainingArea.offsetWidth - 20)}px`;
+            target.style.zIndex = "2";
+
+            if (position <= 0.01 && !target.dataset.counted) {
+                cycles++;
+                cyclesSpan.textContent = cycles;
+                target.dataset.counted = true;
+            } else if (position > 0.01) {
+                target.dataset.counted = false;
+            }
+
+            updateDuration();
+            if (isRunning) {
+                animation = requestAnimationFrame(horizontalMovement);
+            }
+        }
+
+        function verticalMovement(timestamp) {
+            if (!startTime) startTime = timestamp;
+            const elapsed = timestamp - startTime;
+            const speed = speedInput.value * 2;
+            const position = (Math.sin(elapsed * speed / 1000) + 1) / 2;
+            
+            target.style.top = `${position * (trainingArea.offsetHeight - 20)}px`;
+            target.style.left = `${(container.offsetWidth - 20) / 2}px`;
+
+            if (position <= 0.01 && !target.dataset.counted) {
+                cycles++;
+                cyclesSpan.textContent = cycles;
+                target.dataset.counted = true;
+            } else if (position > 0.01) {
+                target.dataset.counted = false;
+            }
+
+            updateDuration();
+            if (isRunning) {
+                animation = requestAnimationFrame(verticalMovement);
+            }
+        }
+
+        // Random movement with smooth transitions
+        function randomMovement(timestamp) {
+            if (!startTime) {
+                startTime = timestamp;
+                target.dataset.nextX = Math.random() * (trainingArea.offsetWidth - 20);
+                target.dataset.nextY = Math.random() * (trainingArea.offsetHeight - 20);
+                target.dataset.currentX = parseFloat(target.style.left) || 0;
+                target.dataset.currentY = parseFloat(target.style.top) || 0;
+                target.dataset.lastUpdate = timestamp;
+            }
+
+            const elapsed = timestamp - parseFloat(target.dataset.lastUpdate);
+            const speed = speedInput.value * 2;
+            const duration = 1000; // Time to reach next point in milliseconds
+
+            // Update position
+            let currentX = parseFloat(target.dataset.currentX);
+            let currentY = parseFloat(target.dataset.currentY);
+            let nextX = parseFloat(target.dataset.nextX);
+            let nextY = parseFloat(target.dataset.nextY);
+
+            // Calculate progress towards next point
+            const progress = Math.min(elapsed / duration, 1);
+            
+            // Smooth transition using easing
+            const easedProgress = 1 - Math.pow(1 - progress, 3); // Cubic easing
+            
+            const newX = currentX + (nextX - currentX) * easedProgress;
+            const newY = currentY + (nextY - currentY) * easedProgress;
+
+            target.style.left = `${newX}px`;
+            target.style.top = `${newY}px`;
+
+            // Generate new target point when reaching current target
+            if (progress >= 1) {
+                target.dataset.currentX = nextX;
+                target.dataset.currentY = nextY;
+                target.dataset.nextX = Math.random() * (trainingArea.offsetWidth - 20);
+                target.dataset.nextY = Math.random() * (trainingArea.offsetHeight - 20);
+                target.dataset.lastUpdate = timestamp;
+
+                // Count as one cycle when reaching target
+                cycles++;
+                cyclesSpan.textContent = cycles;
+            }
+
+            updateDuration();
+            if (isRunning) {
+                animation = requestAnimationFrame(randomMovement);
+            }
+        }
+
+        function circularMovement(timestamp) {
+            if (!startTime) startTime = timestamp;
+            const elapsed = timestamp - startTime;
+            const speed = speedInput.value * 2;
+            const angle = (elapsed * speed / 1000) % (2 * Math.PI);
+            const radius = Math.min(trainingArea.offsetWidth, trainingArea.offsetHeight) / 3;
+            
+            const centerX = trainingArea.offsetWidth / 2;
+            const centerY = trainingArea.offsetHeight / 2;
+            
+            target.style.left = `${centerX + radius * Math.cos(angle) - 10}px`;
+            target.style.top = `${centerY + radius * Math.sin(angle) - 10}px`;
+
+            if (angle <= 0.1 && !target.dataset.counted) {
+                cycles++;
+                cyclesSpan.textContent = cycles;
+                target.dataset.counted = true;
+            } else if (angle > 0.1) {
+                target.dataset.counted = false;
+            }
+
+            updateDuration();
+            if (isRunning) {
+                animation = requestAnimationFrame(circularMovement);
+            }
+        }
+
+        function startAnimation() {
+            isRunning = true;
+            startTime = null;
+            startBtn.disabled = true;
+            stopBtn.disabled = false;
+            patternSelect.disabled = true;
+            letterGame();
+
+            const pattern = patternSelect.value;
+            switch (pattern) {
+                case 'horizontal':
+                    animation = requestAnimationFrame(horizontalMovement);
+                    break;
+                case 'vertical':
+                    animation = requestAnimationFrame(verticalMovement);
+                    break;
+                case 'circular':
+                    animation = requestAnimationFrame(circularMovement);
+                    break;
+                case 'random':
+                    animation = requestAnimationFrame(randomMovement);
+                    break;
+            }
+        }
+
+        function stopAnimation() {
+            isRunning = false;
+            if (animation) {
+                cancelAnimationFrame(animation);
+            }
+            startBtn.disabled = false;
+            stopBtn.disabled = true;
+            patternSelect.disabled = false;
+        }
+
+        startBtn.addEventListener('click', startAnimation);
+        stopBtn.addEventListener('click', stopAnimation);
+        speedInput.addEventListener('input', updateSpeedValue);
+        
+        // Initialize target position
+        target.style.left = '0px';
+        target.style.top = '140px';
+    </script>
+</body>
+</html>
